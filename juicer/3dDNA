@@ -1,0 +1,19 @@
+# downloaded 3d-DNA pipeline
+git clone https://github.com/aidenlab/3d-dna.git
+chmod -R 777 3d-dna
+
+# create kyuss.assembly
+awk -f ./3d-dna/utils/generate-assembly-file-from-fasta.awk references/kyuss.nextdenovo.fasta > kyuss.assembly
+
+# produce hic file for manually editting
+./3d-dna/visualize/run-assembly-visualizer.sh kyuss.assembly aligned/merged_nodups.txt
+
+# after manual editing with JBAT 1.11.08, output the new assembly file
+# copy the assembly file to current folder
+cp /home/yutachen/public/Yutangchen/Kyuss_data/kyuss_nextpolish/juicer/kyuss.review.assembly /scratch/yutang/manual_curation/kyuss/
+
+# now make new fasta file and hic file
+./3d-dna/run-asm-pipeline-post-review.sh -g 100 -r kyuss.review.assembly references/kyuss.nextdenovo.fasta aligned/merged_nodups.txt
+
+# change scaffold name in the FINAL fasta
+sed 's/\<HiC_scaffold_1\>/chr1/' kyuss.nextdenovo.FINAL.fasta | sed 's/\<HiC_scaffold_2\>/chr2/' | sed 's/\<HiC_scaffold_3\>/chr3/' | sed 's/\<HiC_scaffold_4\>/chr4/' | sed 's/\<HiC_scaffold_5\>/chr5/' | sed 's/\<HiC_scaffold_6\>/chr6/' | sed 's/\<HiC_scaffold_7\>/chr7/' | sed 's/HiC_scaffold_/unplaced/' > kyuss.nextdenovo.juicer.fasta
