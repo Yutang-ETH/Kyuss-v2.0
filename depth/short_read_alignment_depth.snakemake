@@ -1,0 +1,55 @@
+# 18.11.2022
+
+# map rabiosa long reads to hap1 assembly to call variants
+
+mybam="/scratch/yutang/kyuss_polca/kyuss_v2/kyuss.nextdenovo.juicer.fasta.alignSorted.bam"
+bamindex="/scratch/yutang/kyuss_polca/kyuss_v2/kyuss.nextdenovo.juicer.fasta.alignSorted.bam.bai"
+
+rule depth:
+    input:
+        "depth_short/chr.1Mb.depth.bed"
+
+rule extract_chr_bam:
+    input:
+        bam=mybam,
+        index=bamindex
+    output:
+        "map_short/short_read_chr.bam"
+    threads: 48
+    shell:
+        '''
+        samtools view -b -@ {threads} {input.bam} chr1 chr2 chr3 chr4 chr5 chr6 chr7 > {output}
+        '''
+
+rule index_chr_bam:
+    input:
+        "map_short/short_read_chr.bam"
+    output:
+        "map_short/short_read_chr.bam.bai"
+    threads: 30
+    shell:
+        '''
+        samtools index -@ {threads} {input}
+        '''
+
+rule cal_depth:
+    input:
+        bam="map_short/short_read_chr.bam",
+        index="map_short/short_read_chr.bam.bai"
+    output:
+        "depth_short/chr.regions.bed.gz"
+    threads: 4
+    shell:
+        '''
+        mosdepth -n --fast-mode --by 1000000 -t {threads} -m depth_short/chr {input.bam}
+        '''
+
+rule depth_bed:
+    input:
+        "depth_short/chr.regions.bed.gz"
+    output:
+        "depth_short/chr.1Mb.depth.bed"
+    shell:
+        '''
+        gzip -d -c {input} | grep 'chr' > {output}
+        '''
