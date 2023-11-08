@@ -1,0 +1,138 @@
+myref="kyuss.nextdenovo.juicer.fasta"
+myfastq=['Hic_reads_R1', 'Hic_reads_R2']
+assembly="kyuss"
+mypattern="GATC"
+myenzyme="dpnii"
+
+rule all:
+    input:
+        'plot/Interchr_hic_contact_matrix.pdf',
+        'plot/Intrachr_hic_contact_matrix.pdf',
+        'hic/hic_corrected.png',
+        'hic/hic_pro_matrix'
+
+rule index_bwa:
+    input:
+        ref='assembly/' + myref
+    output:
+        bwt='assembly/' + myref + '.bwt',
+        amb='assembly/' + myref + '.amb',
+        ann='assembly/' + myref + '.ann',
+        pac='assembly/' + myref + '.pac',
+        sa='assembly/' + myref + '.sa'
+    shell:
+        '''
+        bwa index {input.ref}
+        '''
+
+rule map_bwa:
+    input:
+        ref='assembly/' + myref,
+        bwt='assembly/' + myref + '.bwt',
+        amb='assembly/' + myref + '.amb',
+        ann='assembly/' + myref + '.ann',
+        pac='assembly/' + myref + '.pac',
+        sa='assembly/' + myref + '.sa',
+        fq="{sample}.fastq.gz"
+    output:
+        "map/{sample}.bam"
+    threads: 30
+    shell:
+        '''
+        bwa mem -t {threads} -A1 -B4 -E50 -L0 {input.ref} {input.fq} | samtools view -Shb - > {output}
+        '''
+
+rule find_sites:
+    input:
+        ref='assembly/' + myref,
+    output:
+        "mysite/cut_sites.bed"
+    params:
+        pattern=mypattern
+    shell:
+        '''
+        hicFindRestSite --fasta {input.ref} --searchPattern {params.pattern} -o {output}
+        '''
+
+rule build_matrix:
+    input:
+        bam1=expand("map/{sample}.bam", sample=myfastq[0]),
+        bam2=expand("map/{sample}.bam", sample=myfastq[1]),
+        site="mysite/cut_sites.bed"
+    output:
+        hicmatrix="hic/hic_matrix.h5",
+        hicbam="hic/hic.bam"
+    params:
+        pattern=mypattern,
+        binsize=1000000
+    threads: 60
+    shell:
+        '''
+        hicBuildMatrix --samFiles {input.bam1} {input.bam2} --QCfolder hicQC --threads {threads} --binSize {params.binsize} --restrictionSequence {params.pattern} --danglingSequence {params.pattern} --restrictionCutFile {input.site} --outBam {output.hicbam} -o {output.hicmatrix}
+        ''' 
+
+rule correct_matrix:
+    input:
+        hicmatrix='hic/hic_matrix.h5',
+        hicbam='hic/hic.bam'
+    output:
+        corrected='hic/hic_corrected.h5'
+    shell:
+        '''
+        hicCorrectMatrix correct --matrix {input.hicmatrix} --filterThreshold -2 5 -o {output.corrected}
+        '''
+
+rule plot_qc:
+    input:
+        hicmatrix='hic/hic_matrix.h5',
+        hicbam='hic/hic.bam'
+    output:
+        myplot='hic/hic_corrected.png'
+    shell:
+        '''
+        hicCorrectMatrix diagnostic_plot -m {input.hicmatrix} -o {output.myplot}
+        '''
+
+rule plot_interchr_matrix:
+    input:
+        mymatrix='hic/hic_corrected.h5'
+    output:
+        myplot='plot/Interchr_hic_contact_matrix.pdf'
+    shell:
+        '''
+        hicPlotMatrix --matrix {input.mymatrix} --outFileName {output.myplot} --chromosomeOrder chr1 chr2 chr3 chr4 chr5 chr6 chr7 --log1p --colorMap YlOrBr
+        '''
+
+rule plot_intra_matrix:
+    input:
+        mymatrix='hic/hic_corrected.h5'
+    output:
+        myplot='plot/Intrachr_hic_contact_matrix.pdf'
+    shell:
+        '''
+        hicPlotMatrix --matrix {input.mymatrix} --outFileName {output.myplot} --chromosomeOrder chr1 chr2 chr3 chr4 chr5 chr6 chr7 --log1p --colorMap YlOrBr --perChromosome  
+        '''
+
+rule generate_hicpro_bed:
+    input:
+        mymatrix='hic/hic_corrected.h5',
+        ref='assembly/' + myref
+    output:
+        "hic/dpnii.bed"
+    params:
+        enzyme=myenzyme
+    shell:
+        '''
+        /home/yutachen/public/Yutangchen/HiC-Pro/bin/utils/digest_genome.py -r {params.enzyme} -o {output} {input.ref}
+        '''
+
+rule convert_h5_to_hicpro:
+    input:
+        mybed="hic/dpnii.bed",
+        mymatrix='hic/hic_corrected.h5'
+    output:
+        "hic/hic_pro_matrix"
+    shell:
+        '''
+        hicConvertFormat --matrices {input.mymatrix} --outFileName {output} --inputFormat h5 --outputFormat hicpro --bedFileHicpro {input.mybed}
+        '''
