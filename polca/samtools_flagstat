@@ -1,0 +1,2 @@
+# flagstat
+samtools flagstat -@ 48 kyuss.nextdenovo.juicer.fasta.alignSorted.bam > kyuss_v2_samtools_flagstat.txt &
