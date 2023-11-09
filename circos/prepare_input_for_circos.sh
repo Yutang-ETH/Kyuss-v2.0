@@ -9,7 +9,8 @@ cat kyuss.nextdenovo.juicer.chr.fasta | seqkit sliding -s 1000000 -W 1000000 -g 
 grep 'chr' liftoff_annotation_kyuss_v2.gff | grep 'gene' | cut -f1,4,5 > gene.bed
 
 # make a repeat bed from the repeatmask gff file
-grep 'chr' kyuss.nextdenovo.juicer.fasta.out.gff | cut -f1,4,5 > repeat.bed
+# grep 'chr' kyuss.nextdenovo.juicer.fasta.out.gff | cut -f1,4,5 > repeat.bed
+seqkit locate -P -r -p 'N+' --bed -G ../repeatmask/kyuss.nextdenovo.juicer.fasta.masked | cut -f1-3 > repeat.bed
 
 # make a faidx file for kyuss v2 chromosomes
 samtools faidx kyuss.nextdenovo.juicer.chr.fasta
