@@ -15,3 +15,7 @@ seqkit locate -P -r -p 'N+' --bed -G ../repeatmask/kyuss.nextdenovo.juicer.fasta
 # make a faidx file for kyuss v2 chromosomes
 samtools faidx kyuss.nextdenovo.juicer.chr.fasta
 
+# find gaps in the pseudo-chromosomes
+seqkit locate -p N+ -G -P -r -i --bed kyuss_v1_chr.fasta > kyuss_v1_chr_gap.bed
+seqkit locate -p N+ -G -P -r -i --bed kyuss_v2_chr.fasta > kyuss_v2_chr_gap.bed
+
